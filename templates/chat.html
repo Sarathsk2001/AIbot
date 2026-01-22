@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chatbot</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="chat-container">
+        <div class="chat-header">
+            <h1>🤖 AI Chatbot</h1>
+            <button id="resetBtn" class="reset-btn">Reset Chat</button>
+        </div>
+        
+        <div class="chat-messages" id="chatMessages">
+            <div class="message bot-message">
+                <div class="message-content">
+                    <strong>Bot:</strong> Hello! I'm your AI assistant. How can I help you today?
+                </div>
+            </div>
+        </div>
+        
+        <div class="chat-input-container">
+            <input 
+                type="text" 
+                id="userInput" 
+                placeholder="Type your message here..." 
+                autocomplete="off"
+            >
+            <button id="sendBtn">Send</button>
+        </div>
+    </div>
+
+    <script>
+        const chatMessages = document.getElementById('chatMessages');
+        const userInput = document.getElementById('userInput');
+        const sendBtn = document.getElementById('sendBtn');
+        const resetBtn = document.getElementById('resetBtn');
+
+        function addMessage(message, isUser) {
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `message ${isUser ? 'user-message' : 'bot-message'}`;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'message-content';
+            contentDiv.innerHTML = `<strong>${isUser ? 'You' : 'Bot'}:</strong> ${message}`;
+            
+            messageDiv.appendChild(contentDiv);
+            chatMessages.appendChild(messageDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function addLoadingMessage() {
+            const loadingDiv = document.createElement('div');
+            loadingDiv.className = 'message bot-message loading';
+            loadingDiv.id = 'loadingMessage';
+            loadingDiv.innerHTML = '<div class="message-content"><strong>Bot:</strong> <span class="typing">Typing...</span></div>';
+            chatMessages.appendChild(loadingDiv);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function removeLoadingMessage() {
+            const loadingMsg = document.getElementById('loadingMessage');
+            if (loadingMsg) {
+                loadingMsg.remove();
+            }
+        }
+
+        async function sendMessage() {
+            const message = userInput.value.trim();
+            
+            if (!message) return;
+            
+            addMessage(message, true);
+            userInput.value = '';
+            sendBtn.disabled = true;
+            addLoadingMessage();
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ message: message })
+                });
+
+                const data = await response.json();
+                removeLoadingMessage();
+                
+                if (response.ok) {
+                    addMessage(data.response, false);
+                } else {
+                    addMessage('Error: ' + (data.error || 'Something went wrong'), false);
+                }
+            } catch (error) {
+                removeLoadingMessage();
+                addMessage('Error: Could not connect to server', false);
+                console.error('Error:', error);
+            }
+
+            sendBtn.disabled = false;
+            userInput.focus();
+        }
+
+        async function resetChat() {
+            if (confirm('Are you sure you want to reset the chat?')) {
+                try {
+                    await fetch('/reset', { method: 'POST' });
+                    chatMessages.innerHTML = '<div class="message bot-message"><div class="message-content"><strong>Bot:</strong> Chat reset! How can I help you?</div></div>';
+                } catch (error) {
+                    console.error('Error resetting chat:', error);
+                }
+            }
+        }
+
+        sendBtn.addEventListener('click', sendMessage);
+        resetBtn.addEventListener('click', resetChat);
+        
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        userInput.focus();
+    </script>
+</body>
+</html>
